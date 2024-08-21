@@ -41,7 +41,8 @@ one in 2013.
 ===============================================================================
 INSTALLATION                                           *gitgutter-installation*
 
-Use your favourite package manager, or use Vim's built-in package support.
+First, use your favourite package manager, or use Vim's built-in package
+support.
 
 Vim:~
 >
@@ -59,19 +60,34 @@ Neovim:~
   nvim -u NONE -c "helptags vim-gitgutter/doc" -c q
 <
 
+Second, ensure your 'updatetime' and 'signcolumn' options are set appropriately.
+
+When you make a change to a file tracked by git, the diff markers should
+appear automatically after a short delay.  The delay is governed by vim's
+'updatetime' option; the default value is `4000`, i.e. 4 seconds, but I
+suggest reducing it to around 100ms (add `set updatetime=100` to your vimrc).
+Note 'updatetime' also controls the delay before vim writes its swap file.
+
+The 'signcolumn' option can have any value except "off".
+
 
 ===============================================================================
 WINDOWS                                                     *gitgutter-windows*
 
-I recommend configuring vim-gitgutter with the full path to your git executable.
+There is a potential risk on Windows due to `cmd.exe` prioritising the current
+folder over folders in `PATH`.  If you have a file named `git.*` (i.e. with
+any extension in `PATHEXT`) in your current folder, it will be executed
+instead of git whenever the plugin calls git.
+
+You can avoid this risk by configuring the full path to your git executable.
 For example:
 >
+    " This path probably won't work
     let g:gitgutter_git_executable = 'C:\Program Files\Git\bin\git.exe'
 <
-This is to avoid a problem which occurs if you have file named "git.*" (i.e.
-with any extension in "PATHEXT") in your current folder.  "cmd.exe" prioritises
-the current folder over folders in 'PATH' and will try to execute your file
-instead of the "git" binary.
+
+Unfortunately I don't know the correct escaping for the path - if you do,
+please let me know!
 
 
 ===============================================================================
@@ -87,6 +103,15 @@ Commands for turning vim-gitgutter on and off:~
 
                                                    *gitgutter-:GitGutterToggle*
 :GitGutterToggle        Toggle vim-gitgutter on or off for all buffers.
+
+                                            *gitgutter-:GitGutterBufferDisable*
+:GitGutterBufferDisable Turn vim-gitgutter off for current buffer.
+
+                                             *gitgutter-:GitGutterBufferEnable*
+:GitGutterBufferEnable  Turn vim-gitgutter on for current buffer.
+
+                                             *gitgutter-:GitGutterBufferToggle*
+:GitGutterBufferToggle  Toggle vim-gitgutter on or off for current buffer.
 
                                                          *gitgutter-:GitGutter*
 :GitGutter              Update signs for the current buffer.  You shouldn't
@@ -153,6 +178,11 @@ Commands for jumping between hunks:~
 >
                           command! Gqf GitGutterQuickFix | copen
 <
+                                                 *gitgutter-:GitGutterQuickFixCurrentFile*
+:GitGutterQuickFixCurrentFile     Same as :GitGutterQuickFix, but only load hunks for
+                                  the file in the focused buffer. This has the same
+                                  functionality as :GitGutterQuickFix when the focused
+                                  buffer is empty.
 
 
 Commands for operating on a hunk:~
@@ -172,17 +202,40 @@ Commands for operating on a hunk:~
 
                                               *gitgutter-:GitGutterPreviewHunk*
 :GitGutterPreviewHunk   Preview the hunk the cursor is in.
-                        Use |:pclose| or |CTRL-W_CTRL-Z| to close the preview
-                        window.
 
                         To stage part of the hunk, move to the preview window,
                         delete any lines you do not want to stage, and
                         |GitGutterStageHunk|.
 
+                        To close a non-floating preview window use |:pclose|
+                        or |CTRL-W_z| or |CTRL-W_CTRL-Z|; or normal window-
+                        closing (|:quit| or |:close| or |CTRL-W_c|) if your cursor
+                        is in the preview window.
+
+                        To close a floating window when the cursor is in the
+                        original buffer, move the cursor.
+
+                        To close a floating window when the cursor is in the
+                        floating window use normal window-closing, or move to
+                        the original window with |CTRL-W_p|.  Alternatively set
+                        |g:gitgutter_close_preview_on_escape| and use <Esc>.
+
+                        Two functions are available for your own logic:
+>
+                          gitgutter#hunk#is_preview_window_open()
+                          gitgutter#hunk#close_hunk_preview_window()
+<
+
 Commands for folds:~
 
                                                      *gitgutter-:GitGutterFold*
 :GitGutterFold          Fold all unchanged lines.  Execute again to undo.
+
+
+Other commands:~
+
+                                                 *gitgutter-:GitGutterDiffOrig*
+:GitGutterDiffOrig      Similar to |:DiffOrig| but shows gitgutter's diff.
 
 
 ===============================================================================
@@ -321,6 +374,7 @@ Hunk jumping:~
 Hunk previews:~
 
     |g:gitgutter_preview_win_floating|
+    |g:gitgutter_floating_window_options|
     |g:gitgutter_close_preview_on_escape|
 
 Terminal:~
@@ -481,10 +535,40 @@ Whether to use floating/popup windows for hunk previews.  Note that if you use
 popup windows on Vim you will not be able to stage partial hunks via the
 preview window.
 
+                                          *g:gitgutter_floating_window_options*
+Default:
+>
+    " Vim
+    {
+        \ 'line': 'cursor+1',
+        \ 'col': 'cursor',
+        \ 'moved': 'any'
+    }
+
+    " Neovim
+    {
+        \ 'relative': 'cursor',
+        \ 'row': 1,
+        \ 'col': 0,
+        \ 'width': 42,
+        \ 'height': &previewheight,
+        \ 'style': 'minimal'
+    }
+<
+This dictionary is passed directly to |popup_create()| (Vim) or
+|nvim_open_win()| (Neovim).
+
+If you simply want to override one or two of the default values, create a file
+in an after/ directory.  For example:
+>
+    " ~/.vim/after/vim-gitgutter/overrides.vim
+    let g:gitgutter_floating_window_options['border'] = 'single'
+<
+
                                           *g:gitgutter_close_preview_on_escape*
 Default: 0
 
-Whether pressing <Esc> in a non-floating preview window closes it.
+Whether pressing <Esc> in a preview window closes it.
 
                                            *g:gitgutter_terminal_reports_focus*
 Default: 1
@@ -562,7 +646,7 @@ colorscheme or |vimrc|:
     GitGutterAddLine          " default: links to DiffAdd
     GitGutterChangeLine       " default: links to DiffChange
     GitGutterDeleteLine       " default: links to DiffDelete
-    GitGutterChangeDeleteLine " default: links to GitGutterChangeLineDefault
+    GitGutterChangeDeleteLine " default: links to GitGutterChangeLine
 <
 
 For example, to use |hl-DiffText| instead of |hl-DiffChange|:
@@ -575,11 +659,31 @@ your colorscheme or |vimrc|:
     GitGutterAddLineNr          " default: links to CursorLineNr
     GitGutterChangeLineNr       " default: links to CursorLineNr
     GitGutterDeleteLineNr       " default: links to CursorLineNr
-    GitGutterChangeDeleteLineNr " default: links to CursorLineNr
+    GitGutterChangeDeleteLineNr " default: links to GitGutterChangeLineNr
 <
 For example, to use |hl-Underlined| instead of |hl-CursorLineNr|:
 >
     highlight link GitGutterChangeLineNr Underlined
+<
+To change the diff syntax colours used in the preview window, set up the diff*
+highlight groups in your colorscheme or |vimrc|:
+>
+    diffAdded   " if not set: use GitGutterAdd's foreground colour
+    diffChanged " if not set: use GitGutterChange's foreground colour
+    diffRemoved " if not set: use GitGutterDelete's foreground colour
+<
+Note the diff* highlight groups are used in any buffer whose 'syntax' is
+"diff".
+
+To change the intra-line diff highlights used in the preview window, set up
+the following highlight groups in your colorscheme or |vimrc|:
+>
+    GitGutterAddIntraLine    " default: gui=reverse cterm=reverse
+    GitGutterDeleteIntraLine " default: gui=reverse cterm=reverse
+<
+For example, to use |hl-DiffAdd| for intra-line added regions:
+>
+    highlight link GitGutterAddIntraLine DiffAdd
 <
 
 
@@ -695,3 +799,4 @@ Terminus (https://github.com/wincent/terminus) or set:
     let g:gitgutter_terminal_reports_focus = 0
 <
 
+  vim:tw=78:et:ft=help:norl:
